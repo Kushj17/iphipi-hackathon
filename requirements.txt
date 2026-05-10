@@ -1,0 +1,10 @@
+google-genai
+python-dotenv
+opencv-python
+numpy
+mediapipe
+SpeechRecognition
+PyPDF2
+streamlit
+requests
+deepface

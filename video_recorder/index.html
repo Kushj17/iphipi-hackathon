@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: sans-serif; color: white; text-align: center; margin: 0; padding: 10px;}
+        video { border: 2px solid #4CAF50; border-radius: 8px; background: black; width: 100%; max-width: 500px; }
+        .btn { padding: 10px 20px; margin: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        #startBtn { background-color: #f44336; color: white; }
+        #stopBtn { background-color: #4CAF50; color: white; }
+        #startBtn:disabled, #stopBtn:disabled { background-color: #555; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <video id="preview" autoplay muted playsinline></video>
+    <br>
+    <button id="startBtn" class="btn">🎙️ Start Recording</button>
+    <button id="stopBtn" class="btn" disabled>🛑 Stop & Submit Answer</button>
+    <p id="status" style="font-size: 14px; color: #aaa;">Click Start to begin.</p>
+
+    <script>
+        // --- STREAMLIT HIDDEN COMMUNICATION API ---
+        function sendValueToStreamlit(value) {
+            window.parent.postMessage({
+                isStreamlitMessage: true,
+                type: "streamlit:setComponentValue",
+                value: value,
+            }, "*");
+        }
+
+        // Tell Streamlit the component is ready and set the height
+        window.parent.postMessage({ isStreamlitMessage: true, type: "streamlit:componentReady", apiVersion: 1 }, "*");
+        window.addEventListener("load", function() {
+            window.parent.postMessage({ isStreamlitMessage: true, type: "streamlit:setFrameHeight", height: 450 }, "*");
+        });
+
+        // --- RECORDER LOGIC ---
+        let stream;
+        let mediaRecorder;
+        let recordedChunks = [];
+
+        const preview = document.getElementById('preview');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusText = document.getElementById('status');
+
+        startBtn.onclick = async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                preview.srcObject = stream;
+                
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+                
+                mediaRecorder.ondataavailable = e => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+                
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    
+                    statusText.innerText = "⏳ Uploading directly to Agent... Please wait.";
+                    statusText.style.color = "#ffeb3b";
+
+                    // Convert the Video Blob directly to Base64 and shoot it to Python
+                    const reader = new FileReader();
+                    reader.readAsDataURL(blob); 
+                    reader.onloadend = function() {
+                        const base64data = reader.result;                
+                        sendValueToStreamlit(base64data); // <--- THIS MAGIC LINE SENDS IT TO PYTHON
+                        
+                        statusText.innerText = "✅ Submitted! Agent is analyzing...";
+                        statusText.style.color = "#4CAF50";
+                        recordedChunks = [];
+                    }
+                };
+                
+                mediaRecorder.start();
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                statusText.innerText = "🔴 Recording... Speak clearly!";
+                statusText.style.color = "#ff4c4c";
+                
+            } catch (err) {
+                statusText.innerText = "❌ Error: Could not access camera/mic.";
+            }
+        };
+
+        stopBtn.onclick = () => {
+            mediaRecorder.stop();
+            stream.getTracks().forEach(track => track.stop());
+            preview.srcObject = null;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        };
+    </script>
+</body>
+</html>
