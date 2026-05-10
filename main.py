@@ -12,7 +12,6 @@ from perception.video_processor import VideoIntelligence
 # --- CONFIGURATION ---
 # The new SDK automatically detects the GEMINI_API_KEY environment variable.
 # If you haven't set it in your terminal, it will fallback to this line:
-os.environ["GEMINI_API_KEY"] = os.environ.get("GEMINI_API_KEY", "AIzaSyBoigrpBITne_o1zlaqjhEdnWJ-wjPXJvg")
 
 def run_demo():
     print("--- 🤖 Intelligent Mock Interview Agent Starting ---")
